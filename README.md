@@ -1,0 +1,2 @@
+# collabora-board
+CollaboraBoard
