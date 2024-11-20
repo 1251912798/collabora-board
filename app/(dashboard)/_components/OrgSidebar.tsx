@@ -65,7 +65,7 @@ export const OrgSidebar = () => {
           asChild>
           <Link href="/">
             <LayoutDashboard className="h-4 w-4 mr-2" />
-            Team boards
+            团队画板
           </Link>
         </Button>
 
@@ -80,7 +80,7 @@ export const OrgSidebar = () => {
               query: { favourites: true },
             }}>
             <Star className="h-4 w-4 mr-2" />
-            Favourite boards
+            收藏画板
           </Link>
         </Button>
       </div>
