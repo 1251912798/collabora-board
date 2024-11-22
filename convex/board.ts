@@ -40,3 +40,44 @@ export const create = mutation({
         return board;
     },
 });
+
+export const remove = mutation({
+    args: {
+        id: v.id("boards"),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+
+        if (!identity) {
+            throw new Error("未授权");
+        }
+
+        await ctx.db.delete(args.id);
+    },
+});
+
+export const update = mutation({
+    args: {
+        id: v.id("boards"),
+        title: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+            throw new Error("未授权");
+        }
+        const title = args.title.trim();
+
+        if (!title) {
+            throw new Error("标题不能为空");
+        }
+
+        if (title.length > 60) {
+            throw new Error("标题长度不能超过60个字符");
+        }
+
+        const board = await ctx.db.patch(args.id, { title: args.title });
+
+        return board;
+    },
+});
