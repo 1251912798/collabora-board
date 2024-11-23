@@ -40,7 +40,7 @@ export const create = mutation({
         return board;
     },
 });
-
+// 删除画板
 export const remove = mutation({
     args: {
         id: v.id("boards"),
@@ -52,10 +52,24 @@ export const remove = mutation({
             throw new Error("未授权");
         }
 
+        const userId = identity.subject;
+
+        const existingFavourite = await ctx.db
+            .query("userFavourites")
+            .withIndex("by_user_board", (q) =>
+                q.eq("userId", userId).eq("boardId", args.id)
+            )
+            .unique();
+
+        if (existingFavourite) {
+            await ctx.db.delete(existingFavourite._id);
+        }
+
         await ctx.db.delete(args.id);
     },
 });
 
+// 重命名
 export const update = mutation({
     args: {
         id: v.id("boards"),
@@ -82,6 +96,7 @@ export const update = mutation({
     },
 });
 
+// 收藏画板
 export const favourite = mutation({
     args: { id: v.id("boards"), orgId: v.string() },
     handler: async (ctx, args) => {
@@ -119,7 +134,7 @@ export const favourite = mutation({
         return board;
     },
 });
-
+// 取消收藏
 export const unfavourite = mutation({
     args: { id: v.id("boards") },
     handler: async (ctx, args) => {

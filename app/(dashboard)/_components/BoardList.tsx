@@ -18,6 +18,7 @@ interface BoardListProps {
 }
 
 const BoardList = ({ orgId, query }: BoardListProps) => {
+    // TODO: 多条件搜索
     const data = useQuery(api.boards.get, { orgId, ...query });
 
     if (data === undefined) {
