@@ -25,8 +25,8 @@ const Canvas = ({ boardId }: CanvasProps) => {
             <Info boardId={boardId} />
             <Participants />
             <Toolbar
-                canRedo={canUndo}
-                canUndo={canRedo}
+                canRedo={!canUndo}
+                canUndo={!canRedo}
                 undo={history.undo}
                 redo={history.redo}
                 canvasState={canvasState}
