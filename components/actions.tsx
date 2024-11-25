@@ -7,6 +7,7 @@ import {
 
 import { Link2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 import type { DropdownMenuContentProps } from "@radix-ui/react-dropdown-menu";
 import { Button } from "./ui/button";
@@ -21,9 +22,18 @@ interface ActionsProp {
     sideOffset?: DropdownMenuContentProps["sideOffset"];
     id: string;
     title: string;
+    inBoard?: boolean;
 }
 
-const Actions = ({ children, side, sideOffset, id, title }: ActionsProp) => {
+const Actions = ({
+    children,
+    side,
+    sideOffset,
+    id,
+    title,
+    inBoard,
+}: ActionsProp) => {
+    const router = useRouter();
     const { onOpen } = useRenameModal();
     const { isLoading, mutate } = useApiMutation(api.board.remove);
 
@@ -36,7 +46,14 @@ const Actions = ({ children, side, sideOffset, id, title }: ActionsProp) => {
 
     const handleDelete = () => {
         mutate({ id })
-            .then(() => toast.success("画板删除成功"))
+            .then(() => {
+                if (inBoard) {
+                    router.push("/");
+                    toast.success("画板删除成功");
+                } else {
+                    toast.success("画板删除成功");
+                }
+            })
             .catch(() => toast.error("画板删除失败"));
     };
 

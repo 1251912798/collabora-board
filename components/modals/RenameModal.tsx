@@ -49,11 +49,11 @@ const RenameModal = () => {
         <Dialog open={isOpen} onOpenChange={() => onClose()}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Edit board title</DialogTitle>
+                    <DialogTitle>修改画板标题</DialogTitle>
                 </DialogHeader>
 
                 <DialogDescription>
-                    Enter a new title for this board.
+                    为这个画板输入一个新的标题
                 </DialogDescription>
 
                 <form onSubmit={onSubmit} className="space-y-4">
@@ -70,7 +70,7 @@ const RenameModal = () => {
                     <DialogFooter>
                         <DialogClose asChild>
                             <Button type="button" variant="outline">
-                                Cancel
+                                取消
                             </Button>
                         </DialogClose>
 
@@ -78,7 +78,7 @@ const RenameModal = () => {
                             disabled={isLoading}
                             aria-disabled={isLoading}
                             type="submit">
-                            Save
+                            保存
                         </Button>
                     </DialogFooter>
                 </form>
