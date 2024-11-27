@@ -145,8 +145,8 @@ export enum CanvasMode {
 
 // 定义层类型，用于表示不同类型的图层
 export type Layer =
-    | RectangleLayer
-    | EllipseLayer
-    | PathLayer
-    | TextLayer
-    | NoteLayer;
+    | RectangleLayer // 矩形
+    | EllipseLayer // 椭圆
+    | PathLayer //  路径
+    | TextLayer // 文本
+    | NoteLayer; //  注释
