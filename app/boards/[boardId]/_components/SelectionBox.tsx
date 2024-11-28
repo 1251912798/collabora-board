@@ -18,7 +18,7 @@ const SelectionBox = ({ onResizeHandlePointerDown }: SelectionBoxProps) => {
     );
 
     // 使用useStorage钩子根据当前选择判断是否显示调整大小的句柄
-    const isShoingHandles = useStorage(
+    const isShowingHandles = useStorage(
         (root) =>
             soleLayerId && root.layers.get(soleLayerId)?.type !== LayerType.Path
     );
@@ -34,16 +34,16 @@ const SelectionBox = ({ onResizeHandlePointerDown }: SelectionBoxProps) => {
         <>
             {/* 绘制一个透明填充、蓝色边框的矩形，用于表示选区边界 */}
             <rect
-                className="fill-transparent srtoke-blue-500 stroke-1 pointer-events-none"
+                className="fill-transparent stroke-blue-500 stroke-1 pointer-events-none"
                 style={{
-                    transform: `translate(${bounds.x}px,${bounds.y})`,
+                    transform: `translate(${bounds.x}px, ${bounds.y}px)`,
                 }}
                 x={0}
                 y={0}
                 width={bounds.width}
-                hanging={bounds.height}
+                height={bounds.height}
             />
-            {isShoingHandles && (
+            {isShowingHandles && (
                 <>
                     {/* 绘制八个方向的调整句柄，用户可以通过这些句柄调整选区大小和位置 */}
                     <rect

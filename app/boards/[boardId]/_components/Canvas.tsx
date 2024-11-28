@@ -24,6 +24,7 @@ import {
 import CursorsPresence from "./CursorsPresence";
 import {
     connectionIdToColor,
+    findIntersectingLayersWithRectangle,
     pointerEventToCanvasPoint,
     resizeBounds,
 } from "@/lib/utils";
@@ -109,6 +110,53 @@ const Canvas = ({ boardId }: CanvasProps) => {
         [canvasState]
     );
 
+    // 使用useMutation钩子来更新选择网络，即通过拖拽形成的选区
+    const updateSelectionNet = useMutation(
+        // 函数参数包括存储对象，设置我的状态的函数，当前点和起始点的位置
+        ({ storage, setMyPresence }, current: Point, origin: Point) => {
+            const layers = storage.get("layers").toImmutable();
+            // 更新画布状态，设置当前模式为选择网络模式，并更新起始点和当前点的位置
+            setCanvasState({
+                mode: CanvasMode.SelectionNet,
+                origin,
+                current,
+            });
+
+            // 找到与选择区域相交的图层ID，并更新我的状态中的选择
+            const ids = findIntersectingLayersWithRectangle(
+                layerIds,
+                layers,
+                origin,
+                current
+            );
+
+            setMyPresence({ selection: ids });
+        },
+        // 依赖数组，当layerIds变化时，mutation会重新创建
+        [layerIds]
+    );
+
+    // 使用useCallback钩子来优化开始多选的操作
+    const startMultiSelection = useCallback(
+        // 函数参数为当前点和起始点的位置
+        (current: Point, origin: Point) => {
+            // 如果当前点和起始点之间的距离大于5，则更新画布状态进入选择网络模式
+            if (
+                Math.abs(current.x - origin.x) +
+                    Math.abs(current.y - origin.y) >
+                5
+            ) {
+                setCanvasState({
+                    mode: CanvasMode.SelectionNet,
+                    origin,
+                    current,
+                });
+            }
+        },
+        // 依赖数组为空，回调函数不会因组件重新渲染而改变
+        []
+    );
+
     // 使用useOthersMapped钩子获取其他用户的选区数据
     const selections = useOthersMapped((other) => other.presence.selection);
 
@@ -133,14 +181,26 @@ const Canvas = ({ boardId }: CanvasProps) => {
             e.preventDefault();
 
             const current = pointerEventToCanvasPoint(e, camera);
-            if (canvasState.mode === CanvasMode.Translating) {
+
+            if (canvasState.mode === CanvasMode.Pressing) {
+                startMultiSelection(current, canvasState.origin);
+            } else if (canvasState.mode === CanvasMode.SelectionNet) {
+                updateSelectionNet(current, canvasState.origin);
+            } else if (canvasState.mode === CanvasMode.Translating) {
                 translateSelectedLayers(current);
             } else if (canvasState.mode === CanvasMode.Resizing) {
                 resizeSelectedLayer(current);
             }
             setMyPresence({ cursor: current });
         },
-        [camera, canvasState, resizeSelectedLayer, translateSelectedLayers]
+        [
+            camera,
+            canvasState,
+            resizeSelectedLayer,
+            translateSelectedLayers,
+            startMultiSelection,
+            updateSelectionNet,
+        ]
     );
 
     // 使用useMutation钩子处理图层的插入操作，参数包括存储对象、当前用户状态和新图层的属性
@@ -332,6 +392,26 @@ const Canvas = ({ boardId }: CanvasProps) => {
                     <SelectionBox
                         onResizeHandlePointerDown={onResizeHandlePointerDown}
                     />
+                    {canvasState.mode === CanvasMode.SelectionNet &&
+                        canvasState.current && (
+                            <rect
+                                className="fill-blue-500/5 stroke-blue-500 stroke-1"
+                                x={Math.min(
+                                    canvasState.origin.x,
+                                    canvasState.current.x
+                                )}
+                                y={Math.min(
+                                    canvasState.origin.y,
+                                    canvasState.current.y
+                                )}
+                                width={Math.abs(
+                                    canvasState.origin.x - canvasState.current.x
+                                )}
+                                height={Math.abs(
+                                    canvasState.origin.y - canvasState.current.y
+                                )}
+                            />
+                        )}
                     <CursorsPresence />
                 </g>
             </svg>
