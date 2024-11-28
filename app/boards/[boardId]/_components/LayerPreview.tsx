@@ -31,7 +31,6 @@ const LayerPreview = ({
                 />
             );
         default:
-            console.warn("未知图层类型");
             return null;
     }
 };

@@ -31,6 +31,7 @@ import { useOthersMapped, useStorage } from "@liveblocks/react/suspense";
 import { LiveObject } from "@liveblocks/client";
 import LayerPreview from "./LayerPreview";
 import SelectionBox from "./SelectionBox";
+import SelectionTools from "./SelectionTools";
 
 const MAX_LAYERS = 100;
 
@@ -79,6 +80,45 @@ const Canvas = ({ boardId }: CanvasProps) => {
         [canvasState]
     );
 
+    const translateSelectedLayers = useMutation(
+        ({ storage, self }, point: Point) => {
+            if (canvasState.mode !== CanvasMode.Translating) {
+                return;
+            }
+
+            const offset = {
+                x: point.x - canvasState.current.x,
+                y: point.y - canvasState.current.y,
+            };
+
+            const liveLayers = storage.get("layers");
+
+            for (const id of self.presence.selection) {
+                const layer = liveLayers.get(id);
+
+                if (layer) {
+                    layer.update({
+                        x: layer.get("x") + offset.x,
+                        y: layer.get("y") + offset.y,
+                    });
+                }
+            }
+
+            setCanvasState({ mode: CanvasMode.Translating, current: point });
+        },
+        [canvasState]
+    );
+
+    // 使用useOthersMapped钩子获取其他用户的选区数据
+    const selections = useOthersMapped((other) => other.presence.selection);
+
+    // 取消选择
+    const unSelectLayers = useMutation(({ self, setMyPresence }) => {
+        if (self.presence.selection.length > 0) {
+            setMyPresence({ selection: [] }, { addToHistory: true });
+        }
+    }, []);
+
     // 处理滚轮事件的回调函数，用于调整相机位置
     const onWheel = useCallback((e: React.WheelEvent) => {
         setCamera((camera) => ({
@@ -93,13 +133,14 @@ const Canvas = ({ boardId }: CanvasProps) => {
             e.preventDefault();
 
             const current = pointerEventToCanvasPoint(e, camera);
-
-            if (canvasState.mode === CanvasMode.Resizing) {
+            if (canvasState.mode === CanvasMode.Translating) {
+                translateSelectedLayers(current);
+            } else if (canvasState.mode === CanvasMode.Resizing) {
                 resizeSelectedLayer(current);
             }
             setMyPresence({ cursor: current });
         },
-        [camera, canvasState, resizeSelectedLayer]
+        [camera, canvasState, resizeSelectedLayer, translateSelectedLayers]
     );
 
     // 使用useMutation钩子处理图层的插入操作，参数包括存储对象、当前用户状态和新图层的属性
@@ -162,7 +203,13 @@ const Canvas = ({ boardId }: CanvasProps) => {
             // 将指针事件转换为画布上的点
             const point = pointerEventToCanvasPoint(e, camera);
 
-            if (canvasState.mode === CanvasMode.Inserting) {
+            if (
+                canvasState.mode === CanvasMode.None ||
+                canvasState.mode === CanvasMode.Pressing
+            ) {
+                unSelectLayers();
+                setCanvasState({ mode: CanvasMode.None });
+            } else if (canvasState.mode === CanvasMode.Inserting) {
                 insertLayer(canvasState.layerType, point);
             } else {
                 setCanvasState({
@@ -172,11 +219,8 @@ const Canvas = ({ boardId }: CanvasProps) => {
 
             history.resume();
         },
-        [camera, canvasState, history]
+        [camera, canvasState, history, unSelectLayers]
     );
-
-    // 使用useOthersMapped钩子获取其他用户的选区数据
-    const selections = useOthersMapped((other) => other.presence.selection);
 
     // 使用useMemo钩子计算图层ID到颜色的映射，优化性能，避免不必要的重复计算
     const layerIdsToColorSelection = useMemo(() => {
@@ -223,6 +267,19 @@ const Canvas = ({ boardId }: CanvasProps) => {
         [setCanvasState, camera, history, canvasState.mode]
     );
 
+    const onPointerDown = useCallback(
+        (e: React.PointerEvent) => {
+            const point = pointerEventToCanvasPoint(e, camera);
+
+            if (canvasState.mode === CanvasMode.Inserting) {
+                return;
+            }
+
+            setCanvasState({ origin: point, mode: CanvasMode.Pressing });
+        },
+        [camera, canvasState.mode, setCanvasState]
+    );
+
     // 处理调整大小句柄指针按下事件的回调函数
     const onResizeHandlePointerDown = useCallback(
         (corner: Side, initialBounds: XYWH) => {
@@ -249,12 +306,17 @@ const Canvas = ({ boardId }: CanvasProps) => {
                 canvasState={canvasState}
                 setCanvasState={setCanvasState}
             />
+            <SelectionTools
+                camera={camera}
+                setLastUsedColor={setLastUsedColor}
+            />
             <svg
                 className="h-[100vh] w-[100vw]"
                 onWheel={onWheel}
                 onPointerMove={onPointerMove}
                 onPointerLeave={onPointerLeave}
-                onPointerUp={onPointerUp}>
+                onPointerUp={onPointerUp}
+                onPointerDown={onPointerDown}>
                 <g
                     style={{
                         transform: `translate(${camera.x}px, ${camera.y}px)`,
