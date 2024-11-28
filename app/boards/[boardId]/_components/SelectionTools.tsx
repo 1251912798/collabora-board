@@ -8,7 +8,7 @@ import ColorPicker from "./ColorPicker";
 import useDeleteLayers from "@/hooks/useDeleteLayers";
 import { Hint } from "@/components/hint";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { BringToFront, SendToBack, Trash2 } from "lucide-react";
 
 interface SelectionToolsProps {
     camera: Camera;
@@ -35,6 +35,53 @@ const SelectionTools = ({ camera, setLastUsedColor }: SelectionToolsProps) => {
         [selection, setLastUsedColor]
     );
 
+    // 将选定的图层移至最底部的mutation
+    const onMoveToBack = useMutation(
+        ({ storage }) => {
+            const liveLayerIds = storage.get("layerIds");
+
+            const indices: number[] = [];
+
+            const arr = liveLayerIds.toImmutable();
+
+            for (let i = 0; i < arr.length; i++) {
+                if (selection.includes(arr[i])) {
+                    indices.push(i);
+                }
+            }
+
+            for (let i = 0; i < indices.length; i++) {
+                liveLayerIds.move(indices[i], i);
+            }
+        },
+        [selection]
+    );
+
+    // 将选定的图层移至最前面的mutation
+    const onMoveToFront = useMutation(
+        ({ storage }) => {
+            const liveLayerIds = storage.get("layerIds");
+
+            const indices: number[] = [];
+
+            const arr = liveLayerIds.toImmutable();
+
+            for (let i = 0; i < arr.length; i++) {
+                if (selection.includes(arr[i])) {
+                    indices.push(i);
+                }
+            }
+
+            for (let i = indices.length - 1; i >= 0; i--) {
+                liveLayerIds.move(
+                    indices[i],
+                    arr.length - 1 - (indices.length - 1 - i)
+                );
+            }
+        },
+        [selection]
+    );
+
     // 如果没有选择区域边界，则返回null
     if (!selectionBounds) return null;
 
@@ -51,8 +98,20 @@ const SelectionTools = ({ camera, setLastUsedColor }: SelectionToolsProps) => {
           )`,
             }}>
             <ColorPicker onChange={handleColorChange} />
+            <div className="flex flex-col gap-y-0.5">
+                <Hint label="置于顶层">
+                    <Button variant="board" size="icon" onClick={onMoveToFront}>
+                        <BringToFront />
+                    </Button>
+                </Hint>
+                <Hint label="置于底层">
+                    <Button variant="board" size="icon" onClick={onMoveToBack}>
+                        <SendToBack />
+                    </Button>
+                </Hint>
+            </div>
             <div className="flex items-center pl-2 ml-2 border-l">
-                <Hint label="Delete">
+                <Hint label="删除">
                     <Button variant="board" size="icon" onClick={deleteLayers}>
                         <Trash2 />
                     </Button>
