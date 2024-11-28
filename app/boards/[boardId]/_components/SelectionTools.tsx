@@ -5,6 +5,10 @@ import { Camera, Color } from "@/types/canvas";
 import { useMutation, useSelf } from "@liveblocks/react/suspense";
 import React, { memo } from "react";
 import ColorPicker from "./ColorPicker";
+import useDeleteLayers from "@/hooks/useDeleteLayers";
+import { Hint } from "@/components/hint";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 
 interface SelectionToolsProps {
     camera: Camera;
@@ -13,6 +17,8 @@ interface SelectionToolsProps {
 const SelectionTools = ({ camera, setLastUsedColor }: SelectionToolsProps) => {
     const selection = useSelf((self) => self.presence.selection);
 
+    // 使用useDeleteLayers钩子定义删除图层的函数
+    const deleteLayers = useDeleteLayers();
     // 使用useSelectionBounds钩子获取选择区域的边界
     const selectionBounds = useSelectionBounds();
 
@@ -45,6 +51,13 @@ const SelectionTools = ({ camera, setLastUsedColor }: SelectionToolsProps) => {
           )`,
             }}>
             <ColorPicker onChange={handleColorChange} />
+            <div className="flex items-center pl-2 ml-2 border-l">
+                <Hint label="Delete">
+                    <Button variant="board" size="icon" onClick={deleteLayers}>
+                        <Trash2 />
+                    </Button>
+                </Hint>
+            </div>
         </div>
     );
 };
