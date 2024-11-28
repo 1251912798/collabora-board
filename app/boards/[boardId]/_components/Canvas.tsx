@@ -18,9 +18,15 @@ import {
     Color,
     LayerType,
     Point,
+    Side,
+    XYWH,
 } from "@/types/canvas";
 import CursorsPresence from "./CursorsPresence";
-import { connectionIdToColor, pointerEventToCanvasPoint } from "@/lib/utils";
+import {
+    connectionIdToColor,
+    pointerEventToCanvasPoint,
+    resizeBounds,
+} from "@/lib/utils";
 import { useOthersMapped, useStorage } from "@liveblocks/react/suspense";
 import { LiveObject } from "@liveblocks/client";
 import LayerPreview from "./LayerPreview";
@@ -50,6 +56,29 @@ const Canvas = ({ boardId }: CanvasProps) => {
     const canUndo = useCanUndo();
     const canRedo = useCanRedo();
 
+    // 调整选定图层大小的突变钩子函数
+    const resizeSelectedLayer = useMutation(
+        // 参数包括自我状态和存储对象，以及用于调整大小的点
+        ({ storage, self }, point: Point) => {
+            if (canvasState.mode !== CanvasMode.Resizing) {
+                return;
+            }
+            // 计算新的边界并更新图层
+            const bounds = resizeBounds(
+                canvasState.initialBounds,
+                canvasState.corner,
+                point
+            );
+            const liveLayers = storage.get("layers");
+            const layer = liveLayers.get(self.presence.selection[0]);
+
+            if (layer) {
+                layer.update(bounds);
+            }
+        },
+        [canvasState]
+    );
+
     // 处理滚轮事件的回调函数，用于调整相机位置
     const onWheel = useCallback((e: React.WheelEvent) => {
         setCamera((camera) => ({
@@ -64,9 +93,13 @@ const Canvas = ({ boardId }: CanvasProps) => {
             e.preventDefault();
 
             const current = pointerEventToCanvasPoint(e, camera);
+
+            if (canvasState.mode === CanvasMode.Resizing) {
+                resizeSelectedLayer(current);
+            }
             setMyPresence({ cursor: current });
         },
-        []
+        [camera, canvasState, resizeSelectedLayer]
     );
 
     // 使用useMutation钩子处理图层的插入操作，参数包括存储对象、当前用户状态和新图层的属性
@@ -190,7 +223,19 @@ const Canvas = ({ boardId }: CanvasProps) => {
         [setCanvasState, camera, history, canvasState.mode]
     );
 
-    const onResizeHandlePointerDown = () => {};
+    // 处理调整大小句柄指针按下事件的回调函数
+    const onResizeHandlePointerDown = useCallback(
+        (corner: Side, initialBounds: XYWH) => {
+            // 暂停历史记录
+            history.pause();
+            setCanvasState({
+                mode: CanvasMode.Resizing,
+                initialBounds,
+                corner,
+            });
+        },
+        [history]
+    );
 
     return (
         <main className="h-full w-full relative bg-neutral-100 touch-none">
