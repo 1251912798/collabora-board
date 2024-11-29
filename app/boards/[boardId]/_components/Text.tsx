@@ -1,6 +1,6 @@
 import { cn, colorToCss } from "@/lib/utils"; // 导入工具函数
 import { TextLayer } from "@/types/canvas"; // 导入文本图层类型
-import { useMutation } from "@liveblocks/react";
+import { useMutation } from "@liveblocks/react/suspense";
 import { Kalam } from "next/font/google"; // 导入Google字体
 import ContentEditable, { ContentEditableEvent } from "react-contenteditable"; // 导入可编辑内容组件
 
@@ -8,6 +8,8 @@ import ContentEditable, { ContentEditableEvent } from "react-contenteditable"; /
 const font = Kalam({
     subsets: ["latin"], // 字体子集
     weight: ["400"], // 字体重量
+    display: "swap",
+    adjustFontFallback: false,
 });
 
 // 定义文本属性接口，用于文本组件的属性声明
