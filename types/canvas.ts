@@ -149,4 +149,4 @@ export type Layer =
     | EllipseLayer // 椭圆
     | PathLayer //  路径
     | TextLayer // 文本
-    | NoteLayer; //  注释
+    | NoteLayer; //  便签

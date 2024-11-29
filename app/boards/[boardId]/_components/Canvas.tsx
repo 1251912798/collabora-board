@@ -10,7 +10,7 @@ import { nanoid } from "nanoid";
 import Info from "./Info";
 import Toolbar from "./Toolbar";
 import Participants from "./Participants";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Camera,
     CanvasMode,
@@ -40,6 +40,8 @@ import LayerPreview from "./LayerPreview";
 import SelectionBox from "./SelectionBox";
 import SelectionTools from "./SelectionTools";
 import Path from "./Path";
+import useDisableScrollBounce from "@/hooks/useDisableScrollBounce";
+import useDeleteLayers from "@/hooks/useDeleteLayers";
 
 const MAX_LAYERS = 100;
 
@@ -62,6 +64,8 @@ const Canvas = ({ boardId }: CanvasProps) => {
         g: 255,
         b: 255,
     });
+
+    useDisableScrollBounce();
 
     // 获取历史操作数据，用于撤销和重做功能
     const history = useHistory();
@@ -458,6 +462,34 @@ const Canvas = ({ boardId }: CanvasProps) => {
         },
         [history]
     );
+
+    // 定义一个用于删除图层的函数
+    const deleteLayers = useDeleteLayers();
+
+    // 监听键盘事件以支持撤销和重做功能
+    useEffect(() => {
+        function onKeyDown(e: KeyboardEvent) {
+            // 根据按键类型执行相应的撤销或重做操作
+            switch (e.key) {
+                case "z": {
+                    if (e.ctrlKey || e.metaKey) {
+                        if (e.shiftKey) {
+                            history.redo();
+                        } else {
+                            history.undo();
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 添加键盘事件监听器，并在组件卸载时移除
+        document.addEventListener("keydown", onKeyDown);
+        return () => {
+            document.removeEventListener("keydown", onKeyDown);
+        };
+    }, [history, deleteLayers]);
 
     return (
         <main className="h-full w-full relative bg-neutral-100 touch-none">
