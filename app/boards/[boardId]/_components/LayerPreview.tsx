@@ -1,13 +1,15 @@
 import { LayerType } from "@/types/canvas";
 import { useStorage } from "@liveblocks/react/suspense";
-import { warn } from "console";
 import { memo } from "react";
 import Rectangle from "./Rectangle";
+import Ellipse from "./Ellipse";
+import Text from "./Text";
+import Note from "./Note";
 
 interface LayerPreviewProps {
     id: string;
     onLayerPointerDown: (e: React.PointerEvent, layerId: string) => void;
-    selectionColor?: string;
+    selectionColor: string;
 }
 const LayerPreview = ({
     id,
@@ -21,6 +23,33 @@ const LayerPreview = ({
     }
     // 矩形
     switch (layer.type) {
+        case LayerType.Note:
+            return (
+                <Note
+                    id={id}
+                    layer={layer}
+                    onPointerDown={onLayerPointerDown}
+                    selectionColor={selectionColor}
+                />
+            );
+        case LayerType.Text:
+            return (
+                <Text
+                    id={id}
+                    layer={layer}
+                    onPointerDown={onLayerPointerDown}
+                    selectionColor={selectionColor}
+                />
+            );
+        case LayerType.Ellipse:
+            return (
+                <Ellipse
+                    id={id}
+                    layer={layer}
+                    onPointerDown={onLayerPointerDown}
+                    selectionColor={selectionColor}
+                />
+            );
         case LayerType.Rectangle:
             return (
                 <Rectangle
@@ -31,6 +60,7 @@ const LayerPreview = ({
                 />
             );
         default:
+            console.warn("未知图层类型");
             return null;
     }
 };
