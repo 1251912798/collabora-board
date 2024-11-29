@@ -23,16 +23,23 @@ import {
 } from "@/types/canvas";
 import CursorsPresence from "./CursorsPresence";
 import {
+    colorToCss,
     connectionIdToColor,
     findIntersectingLayersWithRectangle,
+    penPointsToPathLayer,
     pointerEventToCanvasPoint,
     resizeBounds,
 } from "@/lib/utils";
-import { useOthersMapped, useStorage } from "@liveblocks/react/suspense";
+import {
+    useOthersMapped,
+    useSelf,
+    useStorage,
+} from "@liveblocks/react/suspense";
 import { LiveObject } from "@liveblocks/client";
 import LayerPreview from "./LayerPreview";
 import SelectionBox from "./SelectionBox";
 import SelectionTools from "./SelectionTools";
+import Path from "./Path";
 
 const MAX_LAYERS = 100;
 
@@ -42,6 +49,9 @@ interface CanvasProps {
 
 const Canvas = ({ boardId }: CanvasProps) => {
     const layerIds = useStorage((root) => root.layerIds);
+
+    // 使用useSelf钩子获取当前用户的铅笔草稿状态
+    const pencilDraft = useSelf((self) => self.presence.pencilDraft);
 
     const [camera, setCamera] = useState<Camera>({ x: 0, y: 0 });
     const [canvasState, setCanvasState] = useState<CanvasState>({
@@ -157,6 +167,82 @@ const Canvas = ({ boardId }: CanvasProps) => {
         []
     );
 
+    const startDrawing = useMutation(
+        ({ setMyPresence }, point: Point, pressure: number) => {
+            setMyPresence({
+                pencilDraft: [[point.x, point.y, pressure]],
+                pencilColor: lastUsedColor,
+            });
+        },
+        // 依赖项列表，此处依赖lastUsedColor
+        [lastUsedColor]
+    );
+
+    // 使用useMutation钩子来持续绘图，即在使用铅笔工具时追踪笔迹
+    const continueDrawing = useMutation(
+        // 函数参数包括self对象，设置我的状态的函数，当前点和React的指针事件
+        ({ self, setMyPresence }, point: Point, event: React.PointerEvent) => {
+            const { pencilDraft } = self.presence;
+
+            // 如果当前模式不是铅笔模式，或者鼠标按钮没有被按下，或者没有铅笔草稿，则不执行任何操作
+            if (
+                canvasState.mode !== CanvasMode.Pencil ||
+                event.buttons !== 1 ||
+                !pencilDraft
+            )
+                return;
+
+            // 更新我的状态，包括光标位置和铅笔草稿
+            setMyPresence({
+                cursor: point,
+                pencilDraft:
+                    // 如果草稿只有一个点且与当前点相同，则保持草稿不变，否则添加当前点到草稿中
+                    pencilDraft.length === 1 &&
+                    pencilDraft[0][0] === point.x &&
+                    pencilDraft[0][1] === point.y
+                        ? pencilDraft
+                        : [...pencilDraft, [point.x, point.y, event.pressure]],
+            });
+        },
+        // 依赖数组，当canvasState.mode变化时，mutation会重新创建
+        [canvasState.mode]
+    );
+
+    const insertPath = useMutation(
+        ({ storage, self, setMyPresence }) => {
+            const liveLayers = storage.get("layers");
+            const { pencilDraft } = self.presence;
+
+            // 检查是否满足插入路径的条件
+            if (
+                !pencilDraft ||
+                pencilDraft.length < 2 ||
+                liveLayers.size >= MAX_LAYERS
+            ) {
+                setMyPresence({ pencilDraft: null });
+                return;
+            }
+
+            // 生成新路径的唯一ID，并在liveLayers中插入新的LiveObject
+            const id = nanoid();
+            liveLayers.set(
+                id,
+                new LiveObject(penPointsToPathLayer(pencilDraft, lastUsedColor))
+            );
+
+            // 更新layerIds，将新生成的ID加入列表
+            const liveLayerIds = storage.get("layerIds");
+            liveLayerIds.push(id);
+
+            // 清空铅笔草稿并设置画布状态为铅笔模式
+            setMyPresence({ pencilDraft: null });
+            setCanvasState({
+                mode: CanvasMode.Pencil,
+            });
+        },
+        [lastUsedColor]
+    );
+
     // 使用useOthersMapped钩子获取其他用户的选区数据
     const selections = useOthersMapped((other) => other.presence.selection);
 
@@ -190,7 +276,11 @@ const Canvas = ({ boardId }: CanvasProps) => {
                 translateSelectedLayers(current);
             } else if (canvasState.mode === CanvasMode.Resizing) {
                 resizeSelectedLayer(current);
+            } else if (canvasState.mode === CanvasMode.Pencil) {
+                continueDrawing(current, e);
             }
+
+            // 更新自我状态中的光标位置
             setMyPresence({ cursor: current });
         },
         [
@@ -200,6 +290,7 @@ const Canvas = ({ boardId }: CanvasProps) => {
             translateSelectedLayers,
             startMultiSelection,
             updateSelectionNet,
+            continueDrawing,
         ]
     );
 
@@ -269,6 +360,8 @@ const Canvas = ({ boardId }: CanvasProps) => {
             ) {
                 unSelectLayers();
                 setCanvasState({ mode: CanvasMode.None });
+            } else if (canvasState.mode === CanvasMode.Pencil) {
+                insertPath();
             } else if (canvasState.mode === CanvasMode.Inserting) {
                 insertLayer(canvasState.layerType, point);
             } else {
@@ -279,7 +372,14 @@ const Canvas = ({ boardId }: CanvasProps) => {
 
             history.resume();
         },
-        [camera, canvasState, history, unSelectLayers]
+        [
+            camera,
+            canvasState,
+            history,
+            unSelectLayers,
+            insertPath,
+            setCanvasState,
+        ]
     );
 
     // 使用useMemo钩子计算图层ID到颜色的映射，优化性能，避免不必要的重复计算
@@ -335,9 +435,14 @@ const Canvas = ({ boardId }: CanvasProps) => {
                 return;
             }
 
+            if (canvasState.mode === CanvasMode.Pencil) {
+                startDrawing(point, e.pressure);
+                return;
+            }
+
             setCanvasState({ origin: point, mode: CanvasMode.Pressing });
         },
-        [camera, canvasState.mode, setCanvasState]
+        [camera, canvasState.mode, setCanvasState, startDrawing]
     );
 
     // 处理调整大小句柄指针按下事件的回调函数
@@ -413,6 +518,14 @@ const Canvas = ({ boardId }: CanvasProps) => {
                             />
                         )}
                     <CursorsPresence />
+                    {pencilDraft && pencilDraft.length > 0 && (
+                        <Path
+                            fill={colorToCss(lastUsedColor)}
+                            points={pencilDraft}
+                            x={0}
+                            y={0}
+                        />
+                    )}
                 </g>
             </svg>
         </main>
